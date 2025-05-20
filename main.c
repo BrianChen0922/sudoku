@@ -1,0 +1,227 @@
+#include<stdio.h> // 引入標準輸入輸出標頭檔
+
+void print_board(int board[][9]) { // 印出數獨盤面的函式，參數為9x9整數陣列
+    printf("\n +-------+-------+-------+\n"); // 印出上方邊框
+    for (int i = 0; i < 9; i++) { // 逐列處理
+        for (int j = 0; j < 9; j++) { // 逐行處理
+            if (j % 3 == 0) printf(" | "); // 每三格加一條豎線分隔
+            else printf(" "); // 其他格子間加空格
+
+            if (board[i][j] == 0) {
+                printf("_");  // 若該格為0，印底線表示空格
+            } else {
+                printf("%d", board[i][j]); // 否則印出該格的數字
+            }
+        }
+        printf(" |\n"); // 每列結束加右側豎線並換行
+        if (i % 3 == 2) printf(" +-------+-------+-------+\n"); // 每三列加一條橫線分隔
+    }
+}
+
+// 預設的數獨盤面，0 代表空格
+int board[9][9] = {
+    {0, 0, 0, 0, 0, 0, 0, 9, 0},
+    {1, 9, 0, 4, 7, 0, 6, 0, 8},
+    {0, 5, 2, 8, 1, 9, 4, 0, 7},
+    {2, 0, 0, 0, 4, 8, 0, 0, 0},
+    {0, 0, 9, 0, 0, 0, 5, 0, 0},
+    {0, 0, 0, 7, 5, 0, 0, 0, 9},
+    {9, 0, 7, 3, 6, 4, 1, 8, 0},
+    {5, 0, 6, 0, 8, 1, 0, 7, 4},
+    {0, 8, 0, 0, 0, 0, 0, 0, 0}
+};
+
+void save_to_text_file(int board[][9], const char* filename) {
+    FILE *fp = fopen(filename, "w"); // 以寫入模式開啟檔案
+    if (fp == NULL) { // 檢查檔案是否成功開啟
+        printf("無法開啟檔案 %s 進行寫入\n", filename);
+        return;
+    }
+
+    for (int i = 0; i < 9; i++) { // 逐列寫入
+        for (int j = 0; j < 9; j++) { // 逐行寫入
+            if (board[i][j] == 0) {
+                fprintf(fp, ".");  // 使用點表示空格
+            } else {
+                fprintf(fp, "%d", board[i][j]);
+            }
+        }
+        fprintf(fp, "\n");  // 每行結束換行
+    }
+
+    fclose(fp); // 關閉檔案
+    printf("已成功儲存到 %s\n", filename);
+}
+
+int read_from_text_file(int board[][9], const char* filename) {
+    FILE *fp = fopen(filename, "r"); // 以讀取模式開啟檔案
+    if (fp == NULL) { // 檢查檔案是否成功開啟
+        printf("無法開啟檔案 %s 進行讀取\n", filename);
+        return 0;
+    }
+
+    char line[20];  // 足夠容納一行的緩衝區
+    int row = 0;
+
+    // 逐行讀取檔案內容
+    while (row < 9 && fgets(line, sizeof(line), fp) != NULL) {
+        for (int col = 0; col < 9; col++) {
+            if (line[col] == '.') {
+                board[row][col] = 0;  // 空格
+            } else if (line[col] >= '1' && line[col] <= '9') {
+                board[row][col] = line[col] - '0';  // 轉換字元到數字
+            } else {
+                continue;  // 忽略其他字元（如換行）
+            }
+        }
+        row++;
+    }
+
+    fclose(fp); // 關閉檔案
+
+    if (row < 9) { // 檢查是否讀取完整
+        printf("警告：檔案格式不正確或檔案不完整\n");
+        return 0;
+    }
+
+    printf("已成功從 %s 讀取數獨盤面\n", filename);
+    return 1;
+}
+
+typedef struct {
+    int numbers;   // 檔案中的問題總數
+    int datasize;  // 每個問題的資料大小（位元組）
+} SudokuDataHeader;
+
+typedef struct {
+    int id;         // 問題編號
+    int data[9][9]; // 盤面資料
+} SudokuProblem;
+
+void save_to_binary_file(int board[][9], int problem_id, const char* filename, int is_append) {
+    FILE *fp;
+    if (is_append) {
+        // 檢查檔案是否存在
+        fp = fopen(filename, "rb+");
+        if (fp == NULL) {
+            // 檔案不存在，建立新檔案
+            fp = fopen(filename, "wb+");
+            if (fp == NULL) {
+                printf("無法建立檔案 %s\n", filename);
+                return;
+            }
+
+            // 寫入新的標頭
+            SudokuDataHeader header;
+            header.numbers = 1;
+            header.datasize = sizeof(SudokuProblem);
+            fwrite(&header, sizeof(header), 1, fp);
+        } else {
+            // 檔案存在，更新標頭中的問題數量
+            SudokuDataHeader header;
+            fread(&header, sizeof(header), 1, fp);
+            header.numbers++;
+
+            // 回到檔案開頭更新標頭
+            fseek(fp, 0, SEEK_SET);
+            fwrite(&header, sizeof(header), 1, fp);
+
+            // 移動到檔案末尾以添加新問題
+            fseek(fp, 0, SEEK_END);
+        }
+    } else {
+        // 建立新檔案
+        fp = fopen(filename, "wb");
+        if (fp == NULL) {
+            printf("無法開啟檔案 %s 進行寫入\n", filename);
+            return;
+        }
+
+        // 寫入標頭
+        SudokuDataHeader header;
+        header.numbers = 1;
+        header.datasize = sizeof(SudokuProblem);
+        fwrite(&header, sizeof(header), 1, fp);
+    }
+
+    // 建立並寫入問題
+    SudokuProblem problem;
+    problem.id = problem_id;
+
+    for (int i = 0; i < 9; i++) {
+        for (int j = 0; j < 9; j++) {
+            problem.data[i][j] = board[i][j]; // 將目前盤面的資料複製到問題結構中
+        }
+    }
+
+    fwrite(&problem, sizeof(problem), 1, fp); // 將問題寫入檔案
+    fclose(fp); // 關閉檔案
+
+    printf("已成功儲存到二進位檔案 %s\n", filename);
+}
+
+int read_from_binary_file(int board[][9], const char* filename, int problem_index) {
+    FILE *fp = fopen(filename, "rb"); // 以二進位讀取模式開啟檔案
+    if (fp == NULL) {
+        printf("無法開啟檔案 %s 進行讀取\n", filename);
+        return 0;
+    }
+
+    // 讀取標頭
+    SudokuDataHeader header;
+    fread(&header, sizeof(header), 1, fp);
+
+    printf("檔案中有 %d 個數獨問題\n", header.numbers);
+
+    if (problem_index < 0 || problem_index >= header.numbers) {
+        printf("問題編號 %d 超出範圍 (0-%d)\n", problem_index, header.numbers - 1);
+        fclose(fp);
+        return 0;
+    }
+
+    // 跳到指定的問題位置
+    fseek(fp, sizeof(header) + problem_index * header.datasize, SEEK_SET);
+
+    // 讀取問題
+    SudokuProblem problem;
+    fread(&problem, sizeof(problem), 1, fp);
+
+    // 將問題資料複製到提供的板盤中
+    for (int i = 0; i < 9; i++) {
+        for (int j = 0; j < 9; j++) {
+            board[i][j] = problem.data[i][j]; // 將讀取到的盤面資料存回傳入的陣列
+        }
+    }
+
+    printf("已讀取問題 ID: %d\n", problem.id);
+    fclose(fp); // 關閉檔案
+
+    return 1; // 回傳成功
+}
+int main() {
+    print_board(board); // 印出原始盤面
+    save_to_text_file(board, "sudoku.txt"); // 儲存盤面到檔案
+    int new_board[9][9]; // 宣告一個新盤面
+    if (read_from_text_file(new_board, "sudoku.txt")) { // 從檔案讀取盤面
+        printf("讀取的數獨盤面：\n");
+        print_board(new_board); // 印出讀取後的盤面
+    } else {
+        printf("讀取數獨盤面失敗\n");
+    }
+    save_to_binary_file(board, 1, "sudoku.bin", 0); // 儲存盤面到二進位檔案
+    int binary_board[9][9]; // 宣告一個二進位檔案的盤面
+    if (read_from_binary_file(binary_board, "sudoku.bin", 0)) { // 從二進位檔案讀取盤面
+        printf("讀取的二進位數獨盤面：\n");
+        print_board(binary_board); // 印出讀取後的盤面
+    } else {
+        printf("讀取二進位數獨盤面失敗\n");
+    }
+    save_to_binary_file(board, 2, "sudoku.bin", 1); // 追加儲存到二進位檔案
+    if (read_from_binary_file(binary_board, "sudoku.bin", 1)) { // 從二進位檔案讀取第二個問題
+        printf("讀取的二進位數獨盤面：\n");
+        print_board(binary_board); // 印出讀取後的盤面
+    } else {
+        printf("讀取二進位數獨盤面失敗\n");
+    }
+   return 0; // 程式結束
+}
