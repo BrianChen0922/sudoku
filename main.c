@@ -198,6 +198,116 @@ int read_from_binary_file(int board[][9], const char* filename, int problem_inde
 
     return 1; // 回傳成功
 }
+
+int factorial(int n) {
+    // 終止條件
+    if (n <= 1) {
+        return 1;
+    }
+    // 遞迴呼叫
+    return n * factorial(n - 1);
+}
+
+int solve(int puzzle[][9], int pos) {
+    // 終止條件：所有位置都填完了
+    if (pos == 81) {
+        return 1;  // 成功解出
+    }
+    
+    // 將位置編號轉換為行列座標
+    int row = pos / 9;
+    int col = pos % 9;
+    
+    // 如果該位置已有數字，跳到下一個位置
+    if (puzzle[row][col] != 0) {
+        return solve(puzzle, pos + 1);
+    }
+    
+    // 嘗試填入數字 1-9
+    for (int num = 1; num <= 9; num++) {
+        // 檢查這個數字是否可以放在這個位置
+        if (isValid(num, puzzle, row, col)) {
+            // 暫時填入這個數字
+            puzzle[row][col] = num;
+            
+            // 遞迴處理下一個位置
+            if (solve(puzzle, pos + 1)) {
+                return 1;  // 成功找到解答
+            }
+            
+            // 如果遞迴失敗，回溯：清空該格
+            puzzle[row][col] = 0;
+        }
+    }
+    
+    // 所有數字都試過，仍無法解出
+    return 0;
+}
+
+int isValid(int number, int puzzle[][9], int row, int col) {
+    int rowStart = (row / 3) * 3;
+    int colStart = (col / 3) * 3;
+    
+    for (int i = 0; i < 9; i++) {
+        // 檢查同一行
+        if (puzzle[row][i] == number) return 0;
+        
+        // 檢查同一列
+        if (puzzle[i][col] == number) return 0;
+        
+        // 檢查 3x3 小方格
+        if (puzzle[rowStart + (i / 3)][colStart + (i % 3)] == number) return 0;
+    }
+    
+    return 1;
+}
+int count_empty_cells(int puzzle[][9]) {
+    int count = 0;
+    for (int i = 0; i < 9; i++) {
+        for (int j = 0; j < 9; j++) {
+            if (puzzle[i][j] == 0) {
+                count++;
+            }
+        }
+    }
+    return count;
+}
+
+int is_valid_solution(int puzzle[][9]) {
+    // 檢查每一行
+    for (int i = 0; i < 9; i++) {
+        int row_check[10] = {0};
+        for (int j = 0; j < 9; j++) {
+            int num = puzzle[i][j];
+            if (num < 1 || num > 9 || row_check[num]) return 0;
+            row_check[num] = 1;
+        }
+    }
+    // 檢查每一列
+    for (int j = 0; j < 9; j++) {
+        int col_check[10] = {0};
+        for (int i = 0; i < 9; i++) {
+            int num = puzzle[i][j];
+            if (num < 1 || num > 9 || col_check[num]) return 0;
+            col_check[num] = 1;
+        }
+    }
+    // 檢查每個 3x3 方格
+    for (int block_row = 0; block_row < 3; block_row++) {
+        for (int block_col = 0; block_col < 3; block_col++) {
+            int block_check[10] = {0};
+            for (int i = 0; i < 3; i++) {
+                for (int j = 0; j < 3; j++) {
+                    int num = puzzle[block_row * 3 + i][block_col * 3 + j];
+                    if (num < 1 || num > 9 || block_check[num]) return 0;
+                    block_check[num] = 1;
+                }
+            }
+        }
+    }
+    return 1; // 通過所有檢查
+}
+
 int main() {
     print_board(board); // 印出原始盤面
     save_to_text_file(board, "sudoku.txt"); // 儲存盤面到檔案
